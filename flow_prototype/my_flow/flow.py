@@ -1,40 +1,21 @@
 from prefect import flow, get_run_logger, tags, task
 from mlflow import MlflowClient
 
-@task 
-def get_models():
-    logger = get_run_logger()
-    
-    # list all registered models
-    client = MlflowClient()#
-    models = client.search_registered_models()
-    for model in models:
-        logger.info(f"Found model: {model.name}")
-    
-    return models
+from utils.object import BaseWorkflow # base class for workflow 
+from flow_utils.mlflow_flow import get_models, get_by_model_aliases # all mlflow related stuff
 
-@task
-def get_by_model_aliases(models):
-    logger = get_run_logger()
-    client = MlflowClient()
-    
-    for model in models:
-        model_info = client.get_model_version_by_alias(model.name , "champion")
-        logger.info(f"Found model champion: {model.name}")
-        logger.info(f"Getting model champion for {model.name}")
-        # print all model tags
-        logger.info(f"Regsitered Model tags: {model.tags}")
-        # experimnet tags
-        logger.info(f"Experiment tags: {client.get_experiment_by_name(model.name).tags}")
 
 @flow
 def main_flow():
     logger = get_run_logger()
     models = get_models()
-    get_by_model_aliases(models)
-    
-    
+    info_dicts = get_by_model_aliases(models)
+    for info_dict in info_dicts:
+        logger.info(f"Model info: {info_dict}")
+        test_instance = BaseWorkflow(**info_dict)
+        logger.info(f"Test instance: {test_instance}")
+
+
 if __name__ == "__main__":
     with tags("local"):
         main_flow.run()
-        
