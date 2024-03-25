@@ -34,3 +34,8 @@ def get_by_model_aliases(models):
         model_info_dicts.append(combined_dict)
 
     return model_info_dicts
+
+@task
+def set_registered_model_tag(model_name, tag_key, tag_value):
+    client = MlflowClient()
+    client.set_registered_model_tag(model_name, tag_key, tag_value)

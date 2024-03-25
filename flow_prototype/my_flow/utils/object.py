@@ -22,6 +22,7 @@ class BaseWorkflow(BaseModel):
     maintainer: Optional[str | None] = None
     deplyment_status: Optional[str | None] = None
     deployment_handler_type: str = None
+    deployment_pod_name: Optional[str | None] = None
 
     @validator("*", pre=True)
     def empty_str_to_none(cls, v):
