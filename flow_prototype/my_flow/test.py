@@ -2,6 +2,7 @@ import os
 import mlflow
 from mlflow.tracking import MlflowClient 
 import logging
+import json
 
 def get_run_logger():
     logger = logging.getLogger(__name__)
@@ -13,17 +14,19 @@ def get_run_logger():
 
 logger = get_run_logger()
 
-# dont do this in production
-os.environ["MLFLOW_TRACKING_USERNAME"] = "admin"
-os.environ["MLFLOW_TRACKING_PASSWORD"] = "password"
-os.environ["MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING"] = "true"
-os.environ["AWS_DEFAULT_REGION"] = "eu-west-3"
-os.environ["AWS_REGION"] = "eu-west-3"
-os.environ["AWS_ACCESS_KEY_ID"] = "admin"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "test_password"
-os.environ["MLFLOW_S3_ENDPOINT_URL"] = "http://172.24.5.222:9020"
+
+json_data = json.load(open("cred.json"))
+
+os.environ["MLFLOW_TRACKING_USERNAME"] = json_data["MLFLOW_TRACKING_USERNAME"]
+os.environ["MLFLOW_TRACKING_PASSWORD"] = json_data["MLFLOW_TRACKING_PASSWORD"]
+os.environ["MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING"] = json_data["MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING"]
+os.environ["AWS_DEFAULT_REGION"] = json_data["AWS_DEFAULT_REGION"]
+os.environ["AWS_REGION"] = json_data["AWS_REGION"]
+os.environ["AWS_ACCESS_KEY_ID"] = json_data["AWS_ACCESS_KEY_ID"]
+os.environ["AWS_SECRET_ACCESS_KEY"] = json_data["AWS_SECRET_ACCESS_KEY"]
+os.environ["MLFLOW_S3_ENDPOINT_URL"] = json_data["MLFLOW_S3_ENDPOINT_URL"]
 # tracking uri
-os.environ["MLFLOW_TRACKING_URI"] = "https://ard-mlflow.slac.stanford.edu"
+os.environ["MLFLOW_TRACKING_URI"] = json_data["MLFLOW_TRACKING_URI"]
 
 
 
