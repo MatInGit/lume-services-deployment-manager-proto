@@ -1,0 +1,4 @@
+cred.json
+__pycache__/*
+*.png
+*.txt
