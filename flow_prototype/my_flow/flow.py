@@ -1,5 +1,6 @@
 from prefect import flow, get_run_logger, tags, task
 from mlflow import MlflowClient
+import random
 
 # prefect kubernetes flow
 from prefect import flow
@@ -27,52 +28,62 @@ def kubernetes_orchestrator():
     return v1_job_list
 
 
+@task
+def process_instance(workflow_instance: BaseWorkflow):
+    logger = get_run_logger()
+    if workflow_instance.deployment_type == "continuous":
+        logger.info(
+            f"Deploying {workflow_instance.workflow_model_name} with handler {workflow_instance.deployment_handler_type}"
+        )
+        logger.info(
+            "... deploying to k8s cluster (not really but that's the idea) ... "
+        )
+        
+        # handler = get_handler_by_falvor(workflow_instance.deployment_handler_type)
+        # handler.deploy(workflow_instance) # spins up a k8s pod with the model
+        # pod_name = handler.get_pod_name(workflow_instance)
+        
+        set_registered_model_tag(
+            workflow_instance.workflow_model_name,
+            "deployment_status",
+            "deployed",
+        )
+        # pretend pod name
+        pod_name = f"model-pod-{random.randint(1, 1000)}"
+        logger.info(f"Model deployed to pod {pod_name}")
+        set_registered_model_tag(
+            workflow_instance.workflow_model_name,
+            "deployment_pod_name",
+            pod_name,
+        )
+
+    elif workflow_instance.deployment_type == "batch":
+        logger.info(
+            f"Deploying {workflow_instance.workflow_model_name} with handler {workflow_instance.deployment_handler_type}"
+        )
+        logger.info("... running batch job (eventually) ... ")
+        # exectute get data
+        # execute model with data
+        # save results to user specified location
+
+    else:
+        logger.error(
+            f"Invalid deployment type {workflow_instance.deployment_type} for model {workflow_instance.workflow_model_name}"
+        )
+
+
 @flow
 def main_flow():
     logger = get_run_logger()
     models = get_models()
     model_dicts = get_by_model_aliases(models)
     for model_dict in model_dicts:
-        logger.info(f"Model info: {model_dict}")
-        workflow_instance = BaseWorkflow(**model_dict)
-
-        if workflow_instance.deployment_type == "continuous":
-            logger.info(
-                f"Deploying {workflow_instance.workflow_model_name} with handler {workflow_instance.deployment_handler_type}"
-            )
-            logger.info(
-                "... deploying to k8s cluster (not really but that's the idea) ... "
-            )
-            # handler = get_handler_by_falvor(workflow_instance.deployment_handler_type)
-            # handler.deploy(workflow_instance) # spins up a k8s pod with the model
-            # pod_name = handler.get_pod_name(workflow_instance)
-            set_registered_model_tag(
-                workflow_instance.workflow_model_name,
-                "deployment_status",
-                "deployed",
-            )
-            # pretend pod name
-            pod_name = "model-pod-1234"
-            logger.info(f"Model deployed to pod {pod_name}")
-            set_registered_model_tag(
-                workflow_instance.workflow_model_name,
-                "deployment_pod_name",
-                pod_name,
-            )
-            
-        elif workflow_instance.deployment_type == "batch":
-            logger.info(
-                f"Deploying {workflow_instance.workflow_model_name} with handler {workflow_instance.deployment_handler_type}"
-            )
-            logger.info("... running batch job (eventually) ... ")
-            # exectute get data 
-            # execute model with data
-            # save results to user specified location
-            
-        else:
-            logger.error(
-                f"Invalid deployment type {workflow_instance.deployment_type} for model {workflow_instance.workflow_model_name}"
-            )
+        try:
+            workflow_instance = BaseWorkflow(**model_dict)
+            process_instance.submit(workflow_instance)
+        except Exception as e:
+            logger.error(f"Error: {e}")
+            raise e
 
 
 if __name__ == "__main__":
