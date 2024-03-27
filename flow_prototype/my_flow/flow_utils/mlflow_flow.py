@@ -20,7 +20,7 @@ def get_by_model_aliases(models):
     logger = get_run_logger()
     model_info_dicts = []
     for model in models:
-        
+
         try:
             model_info = client.get_model_version_by_alias(model.name, "champion")
             logger.info(f"Model: {model.name}")
@@ -32,10 +32,12 @@ def get_by_model_aliases(models):
             combined_dict["deployment_handler_type"] = "MLflow:pyfunc"
             model_info_dicts.append(combined_dict)
         except Exception as e:
-            logger.warning("Workflow instance could not be created. Check model tags.")
+            logger.warning(
+                f"Workflow instance could not be created. Check model tags for {model.name}"
+            )
             logger.warning(f"Error: {e}")
             continue
-        
+
         # probably should add different types of exceptuions to catch to distinguish between model tags issues and connection issues
 
     return model_info_dicts

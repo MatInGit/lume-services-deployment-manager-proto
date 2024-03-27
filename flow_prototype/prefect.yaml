@@ -9,7 +9,7 @@ build:
     requires: prefect-docker>=0.4.0
     image_name: matindocker/test_flow
     tag: latest # optional, defaults to latest
-    dockerfile: auto
+    dockerfile: Dockerfile
     platform: linux/amd64
 
 # push section allows you to manage if and how this project is uploaded to remote locations
@@ -44,5 +44,5 @@ deployments:
     work_queue_name:
   version:
   description:
-  entrypoint: ./my_flow/flow.py:main_flow
+  entrypoint: ./my_flow/flow.py:model_manager
   parameters: {}
