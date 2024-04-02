@@ -1,0 +1,4 @@
+namespace: model-deployment
+
+resources:
+- {{cookiecutter.project_name.replace(' ', '_').lower()}}-server.yaml

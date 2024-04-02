@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 
+  namespace: model-deployment
+  labels:
+    app: {{cookiecutter.project_name.replace(' ', '_').lower()}}-server
+spec:
+  selector:
+    matchLabels:
+      app: {{cookiecutter.project_name.replace(' ', '_').lower()}}-server
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: {{cookiecutter.project_name.replace(' ', '_').lower()}}-server
+    spec:
+      containers:
+      - name: api
+        image: python:3.11.8-slim-bullseye
+        command: ["
+---
