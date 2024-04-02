@@ -4,3 +4,9 @@ __pycache__
 *.png
 *.txt
 !requirements.txt
+generated_projects/*
+model.yaml
+model.pkl
+generated_projects
+*.pkl
+env
