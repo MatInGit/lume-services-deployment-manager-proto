@@ -14,10 +14,9 @@ class MLflowModelGetter:
         self.model_version = model_version
         self.client = MlflowClient()
         self.model_type = None
-        
-        
+
     def get_pv_mapping(self):
-        
+
         if type(self.model_version) == int:
             version = self.client.get_model_version(self.model_name, self.model_version)
         elif type(self.model_version) == str:
@@ -27,8 +26,12 @@ class MLflowModelGetter:
             version = self.client.get_model_version(self.model_name, version_no.version)
 
         # download pv_mappings.yaml from model root
-        self.client.download_artifacts(version.run_id, f"{self.model_name}/pv_mapping.yaml", ".")
-        return yaml.load(open(f"{self.model_name}/pv_mapping.yaml", "r"), Loader=yaml.FullLoader)
+        self.client.download_artifacts(
+            version.run_id, f"{self.model_name}/pv_mapping.yaml", "."
+        )
+        return yaml.load(
+            open(f"{self.model_name}/pv_mapping.yaml", "r"), Loader=yaml.FullLoader
+        )
 
     def get_model(self):
 
@@ -66,24 +69,24 @@ class MLflowModelGetter:
             raise Exception(f"Flavor {flavor} not supported")
 
 
-class VaraibleTransformer():
+class VaraibleTransformer:
     def __init__(self, pv_mapping: dict, symbol_list):
         self.pv_mapping = pv_mapping
-        
+
         for key, value in self.pv_mapping.items():
             self.__validate_formula(value["formula"])
         self.latest_pvs = {symbol: None for symbol in symbol_list}
         self.latest_transformed = {key: None for key in self.pv_mapping.keys()}
         self.updated = False
-    
+
     def __validate_formula(self, formula: str):
         try:
             sp.sympify(formula.replace(":", "_"))
         except:
             raise Exception(f"Invalid formula: {formula}")
-        
-    def handler_for_k2eg(self,pv_name, value):
-        
+
+    def handler_for_k2eg(self, pv_name, value):
+
         # strip protoco; ca:// or pva:// from pv_name if present
         if pv_name.startswith("ca://"):
             pv_name = pv_name[5:]
@@ -91,20 +94,43 @@ class VaraibleTransformer():
             pv_name = pv_name[6:]
         else:
             pass
-        
+
         self.latest_pvs[pv_name] = value["value"]
-        #print(self.latest_pvs)
+        # print(self.latest_pvs)
         if all([value is not None for value in self.latest_pvs.values()]):
             # print("All PVs updated")
             self.transform()
-            
-        
+
     def transform(self):
         transformed = {}
-        pvs_renamed = {key.replace(":", "_"): value for key, value in self.latest_pvs.items()}
+        pvs_renamed = {
+            key.replace(":", "_"): value for key, value in self.latest_pvs.items()
+        }
         for key, value in self.pv_mapping.items():
-            transformed[key] = sp.sympify(value["formula"].replace(":", "_")).subs(pvs_renamed)
-        
+            transformed[key] = sp.sympify(value["formula"].replace(":", "_")).subs(
+                pvs_renamed
+            )
+
         for key, value in transformed.items():
             self.latest_transformed[key] = value
         self.updated = True
+
+
+class DepGetter:
+    def __init__(self, model_name: str, model_version):
+        self.model_name = model_name
+        self.model_version = model_version
+        self.client = MlflowClient()
+
+    def get_dependencies(self):
+        # Get dependencies
+        if type(self.model_version) == int:
+            version = self.client.get_model_version(self.model_name, self.model_version)
+        elif type(self.model_version) == str:
+            version_no = self.client.get_model_version_by_alias(
+                self.model_name, self.model_version
+            )
+            version = self.client.get_model_version(self.model_name, version_no.version)
+
+        deps = mlflow.artifacts.download_artifacts(f"{version.source}/requirements.txt")
+        return deps
