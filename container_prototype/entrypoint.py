@@ -37,7 +37,7 @@ class DepGetter:
         return deps
     
 
-dep = DepGetter("generic_model", "champion")
+dep = DepGetter("torch_model", "champion") # these will be grabbed from the environment variables
 
 # print(dep.get_dependencies())
 
