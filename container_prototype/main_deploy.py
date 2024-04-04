@@ -3,6 +3,12 @@ import os, json, time
 from k2eg_utils.utils import monitor, initialise_k2eg
 import sys
 import torch
+import logging 
+
+# logging.basicConfig(
+#             format="[%(asctime)s %(levelname)-8s] %(message)s",
+#             level=logging.DEBUG,
+#         )
 
 _dir = os.path.dirname(os.path.abspath(__file__))
 os.environ["K2EG_PYTHON_CONFIGURATION_PATH_FOLDER"] = os.path.join(_dir, "k2eg_utils")
@@ -14,19 +20,30 @@ print(os.environ["K2EG_PYTHON_CONFIGURATION_PATH_FOLDER"])
 model_getter = MLflowModelGetter(
     model_name=os.environ["model_name"], model_version=os.environ["model_version"]
 )  # these will be grabbed from the environment variables
+
 model = model_getter.get_model()
 pv_mapping = model_getter.get_pv_mapping()
 vt = VaraibleTransformer(pv_mapping["epics_to_model"], pv_mapping["epics_vars"].keys())
 vto = VaraibleTransformer(pv_mapping["model_to_epics"], pv_mapping["model_output"])
 
 pv_list = []
+pv_list_output = []
 
 for key, value in pv_mapping[
     "epics_vars"
 ].items():  # this could be wrapped up in the vt module in the future
     pv_list.append(value["source"])
 
-print(pv_list)
+for key in pv_mapping[
+    "model_to_epics"
+].keys():
+    pv_list_output.append("pva://"+ key)
+
+for pv in pv_list:
+    print(pv)
+
+for pv in pv_list_output:
+    print(pv)
 
 
 def main():
@@ -34,6 +51,7 @@ def main():
         # returns mlflow.pyfunc.PyFuncModel
         print("initialising k2eg")
         k = initialise_k2eg()
+        k_out = initialise_k2eg(name = "app-test-4")
         print("k2eg initialised")
 
         # intialise pv values this section could be wrapped up in the vt module in the future
@@ -43,7 +61,7 @@ def main():
             print(f"PV: {pv}, Value: {val}")
             vt.handler_for_k2eg(pv, pv_full)
 
-        monitor(pv_list=pv_list, handler=vt.handler_for_k2eg, client=k)
+        monitor(pv_list=pv_list, handler=vt.handler_for_k2eg, client=k) # this doesnt need to be a sublclass given how simple it is
 
         while True:
             if vt.updated:
@@ -66,8 +84,7 @@ def main():
                     for key, value in vto.latest_transformed.items():
                         print(f"Output: {key}, Value: {value}")
                         try:
-                            msg = k.put("pva://" + key, value, 0.1)
-                            print(f"Message: {msg}")
+                            k_out.put("pva://" + key, value, 1)
                         except Exception as e:
                             print(f"An error occured: {e}")
 
@@ -78,6 +95,7 @@ def main():
         print("Keyboard interrupt detected")
         print("Closing k2eg")
         k.close()
+        k_out.close()
         print("Exiting...")
         raise KeyboardInterrupt
 
@@ -85,6 +103,7 @@ def main():
         print(f"An error occured: {e}")
         print("Closing k2eg")
         k.close()
+        k_out.close()
         print("Exiting...")
         raise e
 
