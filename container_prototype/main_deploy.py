@@ -1,10 +1,9 @@
 from model_utils.utils import MLflowModelGetter, VaraibleTransformer
 import os, json, time
 from k2eg_utils.utils import monitor, initialise_k2eg
-import sys
+import sys, time
 import torch
 import logging 
-
 # logging.basicConfig(
 #             format="[%(asctime)s %(levelname)-8s] %(message)s",
 #             level=logging.DEBUG,
@@ -39,12 +38,6 @@ for key in pv_mapping[
 ].keys():
     pv_list_output.append("pva://"+ key)
 
-for pv in pv_list:
-    print(pv)
-
-for pv in pv_list_output:
-    print(pv)
-
 
 def main():
     try:
@@ -58,7 +51,7 @@ def main():
         for pv in pv_list:
             pv_full = k.get(pv)
             val = pv_full["value"]
-            print(f"PV: {pv}, Value: {val}")
+            # print(f"PV: {pv}, Value: {val}")
             vt.handler_for_k2eg(pv, pv_full)
 
         monitor(pv_list=pv_list, handler=vt.handler_for_k2eg, client=k) # this doesnt need to be a sublclass given how simple it is
@@ -66,7 +59,7 @@ def main():
         while True:
             if vt.updated:
                 inputs = vt.latest_transformed
-                print(f"Inputs: {inputs}")
+                # print(f"Inputs: {inputs}")
 
                 if model_getter.model_type == "torch":
                     for key, value in inputs.items():
@@ -80,13 +73,16 @@ def main():
                     vto.handler_for_k2eg(key, {"value": value})
 
                 if vto.updated:
-                    print(f"Output: {vto.latest_transformed}")
+                    time_start = time.time()
                     for key, value in vto.latest_transformed.items():
-                        print(f"Output: {key}, Value: {value}")
+                        # print(f"Output: {key}, Value: {value}")
                         try:
                             k_out.put("pva://" + key, value, 1)
                         except Exception as e:
                             print(f"An error occured: {e}")
+                    time_end = time.time()
+                    print(f"Time taken to put: {time_end - time_start} - {(time_end - time_start)/len(vto.latest_transformed) })")
+
 
                 # print(f"Output: {output}")
                 vt.updated = False
