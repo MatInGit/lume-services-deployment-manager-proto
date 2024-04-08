@@ -44,5 +44,5 @@ deployments:
     work_queue_name:
   version:
   description:
-  entrypoint: ./my_flow/flow.py:model_manager
+  entrypoint: ./model_manager/flow.py:model_manager
   parameters: {}
