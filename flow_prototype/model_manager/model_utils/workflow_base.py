@@ -24,6 +24,7 @@ class BaseWorkflow(BaseModel):
     deployment_handler_type: str = None
     deployment_pod_name: Optional[str | None] = None
     data_source: Optional[str | None] = None
+    deployment_terminate: Optional[bool | None] = False
 
     @validator("*", pre=True)
     def empty_str_to_none(cls, v):
@@ -33,7 +34,7 @@ class BaseWorkflow(BaseModel):
 
     @field_validator("deployment_type")
     def validate_deployment_type(cls, value):
-        if value not in ["continuous", "batch", "flow"]:
+        if value not in ["continuous", "batch", "flow", "prod"]:
             raise ValueError(
                 "Invalid deployment type, must be continuous, flow or batch"
             )

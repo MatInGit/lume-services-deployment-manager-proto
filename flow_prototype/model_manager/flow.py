@@ -29,17 +29,13 @@ kubernetes_credentials = (
 @task
 def process_model(workflow_instance: BaseWorkflow):
     logger = get_run_logger()
-    if workflow_instance.deployment_type == "continuous":
+    if workflow_instance.deployment_type == "continuous" or "prod":
         logger.info(f"Deploying {workflow_instance.workflow_model_name}")
-
-        # handler = get_handler_by_falvor(workflow_instance.deployment_handler_type)
-        # handler.deploy(workflow_instance) # spins up a k8s pod with the model
-        # pod_name = handler.get_pod_name(workflow_instance)
 
         set_registered_model_tag(
             workflow_instance.workflow_model_name,
             "deployment_status",
-            "starting_deployment",
+            "deployment_running",
         )
 
         return workflow_instance
@@ -49,29 +45,12 @@ def process_model(workflow_instance: BaseWorkflow):
             f"Deploying {workflow_instance.workflow_model_name} with handler {workflow_instance.deployment_handler_type}"
         )
         logger.info("... running batch job (eventually) ... ")
-        # exectute get data
-        # execute model with data
-        # save results to user specified location
         return None
     else:
         logger.error(
             f"Invalid deployment type {workflow_instance.deployment_type} for model {workflow_instance.workflow_model_name}"
         )
         return None
-
-
-###{
-#     "MLFLOW_TRACKING_USERNAME": "admin",
-#     "MLFLOW_TRACKING_PASSWORD": "password",
-#     "MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING": "true",
-#     "AWS_DEFAULT_REGION": "eu-west-3",
-#     "AWS_REGION": "eu-west-3",
-#     "AWS_ACCESS_KEY_ID": "admin",
-#     "AWS_SECRET_ACCESS_KEY": "test_password",
-#     "MLFLOW_S3_ENDPOINT_URL": "http://172.24.5.222:9020",
-#     "MLFLOW_TRACKING_URI": "https://ard-mlflow.slac.stanford.edu"
-#   }
-
 
 @task
 def workflow_to_pod(workflow: BaseWorkflow):
@@ -96,7 +75,7 @@ def workflow_to_pod(workflow: BaseWorkflow):
             "containers": [
                 {
                     "name": f"{workflow.workflow_model_name}-{workflow.workflow_model_version}".replace("_", "-"),
-                    "image": "matindocker/lumeservicesdeployment:latest",
+                    "image": "matindocker/lumeservicesdeployment:latest", # this can be parameterized to allow for different images
                     "env": [
                         {"name": "model_name", "value": workflow.workflow_model_name},
                         {
@@ -173,12 +152,12 @@ def check_if_model_already_exists(
 
     return False, False, None
 
-
 @flow
-def model_manager():
+def model_manager(models = None):
     logger = get_run_logger()
-
-    models = get_models()
+    
+    if models is None:
+        models = get_models()
     model_dicts = get_by_model_aliases(models)
     workflow_instances = []
 
@@ -196,7 +175,7 @@ def model_manager():
     for workflow_instance in workflow_instances:
         try:
             logger.info(f"Processing model {workflow_instance.workflow_model_name}")
-            results.append(process_model(workflow_instance))
+            results.append(process_model(workflow_instance)) # this doesnt do much anymore
         except Exception as e:
             logger.warning(
                 f"Error: {e} for model {workflow_instance.workflow_model_name}"
@@ -220,62 +199,95 @@ def model_manager():
             result.workflow_model_name,
             result.workflow_model_version,
         )
-
-        if not already_exists and not same_version:
-            logger.info(
-                f"Creating pod {result.workflow_model_name} with version {result.workflow_model_version}"
-            )
-            create_namespaced_pod(
-                namespace="mlflow",
-                new_pod=pod,
-                kubernetes_credentials=kubernetes_credentials,
-            )
-            
-            set_registered_model_tag(
-                result.workflow_model_name,
-                "deployment_status",
-                "deployment_running",
-            )
-            set_registered_model_tag(
-                result.workflow_model_name,
-                "deployment_pod_name",
-                pod.metadata["name"] # its annoying this is different
-            )
-
-        elif already_exists and not same_version:
-            logger.info(f"Deleting pod {result.workflow_model_name}")
-            delete_namespaced_pod(
-                kubernetes_credentials=kubernetes_credentials,
-                pod_name=old_pod.metadata.name,
-                namespace="mlflow",
-            )
-            set_registered_model_tag(
-                result.workflow_model_name,
-                "deployment_status",
-                "updating_deployment",
-            )
-            
-            create_namespaced_pod(
-                namespace="mlflow",
-                new_pod=pod,
-                kubernetes_credentials=kubernetes_credentials,
-            )
-            set_registered_model_tag(
-                result.workflow_model_name,
-                "deployment_status",
-                "deployment_running",
-            )
-            set_registered_model_tag(
-                result.workflow_model_name,
-                "deployment_pod_name",
-                pod.metadata["name"] # its annoying this is different
-            )
         
-
+        if result.deployment_terminate:
+            if already_exists:
+                logger.info(f"Deleting pod {result.workflow_model_name}")
+                delete_namespaced_pod(
+                    kubernetes_credentials=kubernetes_credentials,
+                    pod_name=old_pod.metadata.name,
+                    namespace="mlflow",
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_status",
+                    "deployment_terminated",
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_pod_name",
+                    None
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_type",
+                    "terminated"
+                )
+            else:
+                logger.info(f"Pod {result.workflow_model_name} terminated")
+        
         else:
-            logger.info(
-                f"Pod {result.workflow_model_name} with version {result.workflow_model_version} already exists"
-            )
+            if not already_exists and not same_version:
+                logger.info(
+                    f"Creating pod {result.workflow_model_name} with version {result.workflow_model_version}"
+                )
+                create_namespaced_pod(
+                    namespace="mlflow",
+                    new_pod=pod,
+                    kubernetes_credentials=kubernetes_credentials,
+                )
+                
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_status",
+                    "deployment_running",
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_pod_name",
+                    pod.metadata["name"] # its annoying this is different
+                )
+                # human readable timestamp
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_timestamp",
+                    time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+                )
+
+            elif already_exists and not same_version:
+                logger.info(f"Deleting pod {result.workflow_model_name}")
+                delete_namespaced_pod(
+                    kubernetes_credentials=kubernetes_credentials,
+                    pod_name=old_pod.metadata.name,
+                    namespace="mlflow",
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_status",
+                    "updating_deployment",
+                )
+                
+                create_namespaced_pod(
+                    namespace="mlflow",
+                    new_pod=pod,
+                    kubernetes_credentials=kubernetes_credentials,
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_status",
+                    "deployment_running",
+                )
+                set_registered_model_tag(
+                    result.workflow_model_name,
+                    "deployment_pod_name",
+                    pod.metadata["name"] # its annoying this is different
+                )
+            
+
+            else:
+                logger.info(
+                    f"Pod {result.workflow_model_name} with version {result.workflow_model_version} already exists"
+                )
 
     # also handle hanging pods that are not in the list
 
