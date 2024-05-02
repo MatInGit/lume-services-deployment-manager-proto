@@ -32,6 +32,20 @@ class BaseWorkflow(BaseModel):
             return None
         return v
 
+    # Validate deployment terminate and convert to boolean
+    @validator("deployment_terminate")
+    def validate_deployment_terminate(cls, value):
+        # check of string value
+        if isinstance(value, str):
+            if value.lower() == "true":
+                return True
+            elif value.lower() == "false":
+                return False
+        elif: isinstance(value, bool):
+            return value
+        else:
+            raise ValueError("Invalid deployment terminate value")
+
     @field_validator("deployment_type")
     def validate_deployment_type(cls, value):
         if value not in ["continuous", "batch", "flow", "prod"]:

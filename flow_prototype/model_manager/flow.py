@@ -69,6 +69,7 @@ def workflow_to_pod(workflow: BaseWorkflow):
                 "md5chk": workflow_hash,
                 "model_name": workflow.workflow_model_name,
                 "model_version": workflow.workflow_model_version,
+                "service_type": "model_deployment",
             },
         },
         spec={
@@ -116,6 +117,10 @@ def workflow_to_pod(workflow: BaseWorkflow):
                         {
                             "name": "MLFLOW_S3_ENDPOINT_URL",
                             "value": os.environ.get("MLFLOW_S3_ENDPOINT_URL"),
+                        },
+                        {
+                            "name": "K2EG_PYTHON_CONFIGURATION_PATH_FOLDER",
+                            "value": "/opt/deployment/model_manager/src/interfaces",
                         },
                     ],
                 }
